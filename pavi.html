@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Deals CRM • Kanban Dashboard</title>
+  <style>
+    /* ---- Reset & Base ---- */
+    *, *::before, *::after { box-sizing: border-box; }
+    :root{
+      --bg: #0b1220;
+      --bg2: #0f1629;
+      --panel: #0d1b3a;
+      --muted: #93a4c3;
+      --text: #e8eeff;
+      --accent: #7dd3fc;   /* sky */
+      --accent2: #a78bfa;  /* violet */
+      --success: #22c55e;  /* green */
+      --warning: #f59e0b;  /* amber */
+      --danger: #ef4444;   /* red */
+      --shadow: 0 10px 40px rgba(0,0,0,.45);
+      --glass: rgba(255,255,255,0.08);
+      --ring: rgba(125,211,252,.5);
+    }
+    html, body { height: 100%; }
+    body{
+      margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
+      color: var(--text);
+      background: radial-gradient(1200px 800px at 10% 10%, #1a274a 0%, transparent 55%),
+                  radial-gradient(1000px 700px at 90% 10%, #3a1d6f 0%, transparent 60%),
+                  linear-gradient(160deg, var(--bg) 0%, var(--bg2) 100%);
+      overflow: hidden;
+    }
+
+    /* ---- App Shell ---- */
+    .app{ display:flex; flex-direction:column; height:100%; }
+    header{
+      position:relative;
+      padding: 14px 20px; display:flex; align-items:center; gap:12px;
+      backdrop-filter: blur(8px);
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      box-shadow: var(--shadow);
+      z-index: 5;
+    }
+    .logo{ display:flex; align-items:center; gap:10px; font-weight:700; letter-spacing:.3px; }
+    .logo .sparkle{ width:26px; height:26px; border-radius:8px; position:relative; overflow:hidden;
+      background: conic-gradient(from 0deg, #6ee7ff, #c084fc, #60a5fa, #22c55e, #f59e0b, #6ee7ff);
+      filter: saturate(150%);
+      animation: spin 6s linear infinite;
+      box-shadow: 0 0 0 2px rgba(255,255,255,.08), 0 8px 25px rgba(100,150,255,.25);
+    }
+    @keyframes spin{ to{ transform: rotate(360deg); } }
+
+    .controls{ margin-left:auto; display:flex; align-items:center; gap:8px; }
+    .btn{
+      appearance:none; border:none; color:var(--text); font-weight:600; padding:10px 14px; border-radius:16px;
+      background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.06));
+      border:1px solid rgba(255,255,255,.14);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.15), 0 8px 20px rgba(0,0,0,.35);
+      cursor:pointer; transition: transform .06s ease, box-shadow .2s ease, filter .2s ease;
+    }
+    .btn:hover{ transform: translateY(-1px); filter: brightness(1.05); }
+    .btn:active{ transform: translateY(0); }
+    .btn.primary{ background: linear-gradient(180deg, rgba(125,211,252,.3), rgba(125,211,252,.16)); border-color: var(--ring); }
+    .btn.danger{ background: linear-gradient(180deg, rgba(239,68,68,.28), rgba(239,68,68,.16)); border-color: rgba(239,68,68,.5); }
+
+    /* ---- Board ---- */
+    .board{ flex:1; display:flex; gap:16px; padding:16px 18px 24px; overflow:auto; }
+
+    .col{
+      flex:1; min-width: 260px; background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.04));
+      border:1px solid rgba(255,255,255,.12); border-radius:20px; padding:14px; display:flex; flex-direction:column; gap:12px;
+      position:relative; overflow:hidden;
+    }
+    .col::before{ /* glossy shine */
+      content:""; position:absolute; inset:0; pointer-events:none;
+      background: linear-gradient(120deg, rgba(255,255,255,.15), rgba(255,255,255,0) 35%);
+      mix-blend-mode: soft-light; opacity:.45;
+    }
+    .col-header{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .col-title{ display:flex; align-items:center; gap:10px; font-weight:800; letter-spacing:.3px; }
+    .pill{ padding:3px 8px; border-radius:999px; font-size:12px; color:#061021; background: #c7e8ff; font-weight:800; }
+    .count{ font-size:12px; opacity:.7; }
+    .dropzone{ min-height: 60px; display:flex; flex-direction:column; gap:10px; }
+
+    /* ---- Deal Card ---- */
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.05));
+      border:1px solid rgba(255,255,255,.16);
+      border-radius:18px; padding:12px; display:flex; flex-direction:column; gap:10px;
+      box-shadow: var(--shadow);
+      transition: transform .1s ease, filter .2s ease, box-shadow .2s ease;
+      cursor: grab;
+      position:relative; overflow:hidden;
+    }
+    .card:active{ cursor: grabbing; }
+    .card:hover{ transform: translateY(-2px); filter: brightness(1.05); }
+    .card .shine{ position:absolute; inset:0; background: linear-gradient(120deg, rgba(255,255,255,.35), rgba(255,255,255,0) 30%);
+      mix-blend-mode: soft-light; opacity:.35; pointer-events:none; }
+    .card-title{ font-weight:800; display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .tag{ font-size:11px; padding:3px 8px; border-radius:999px; border:1px solid rgba(255,255,255,.22); opacity:.9; }
+    .money{ font-weight:900; }
+    .meta{ font-size:12px; opacity:.8; display:flex; gap:10px; flex-wrap:wrap; }
+    .actions{ display:flex; gap:8px; margin-top:2px; }
+    .icon-btn{ border:none; background: rgba(255,255,255,.08); padding:8px; border-radius:12px; cursor:pointer; color:var(--text); }
+
+    .ghost{ opacity:.4; border-style:dashed; }
+
+    /* ---- Modal ---- */
+    .modal-backdrop{ position:fixed; inset:0; background: rgba(0,0,0,.45); display:none; align-items:center; justify-content:center; z-index:100; }
+    .modal{ width:min(560px, 94vw); background: linear-gradient(180deg, rgba(17,24,39,.9), rgba(15,23,42,.85)); border:1px solid rgba(255,255,255,.14); border-radius:22px; padding:18px; box-shadow: var(--shadow); }
+    .modal h3{ margin:4px 0 10px; }
+    .form{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+    .form .full{ grid-column: 1 / -1; }
+    label{ font-size:12px; opacity:.8; display:block; margin-bottom:6px; font-weight:700; }
+    input, select, textarea{
+      width:100%; background: rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.16); border-radius:12px; color:var(--text);
+      padding:10px 12px; outline:none; font-size:14px;
+    }
+    textarea{ min-height: 80px; resize: vertical; }
+    .modal-actions{ display:flex; gap:10px; justify-content:flex-end; margin-top:12px; }
+
+    /* ---- Toasts ---- */
+    .toasts{ position: fixed; top: 12px; right: 12px; display:flex; flex-direction:column; gap:8px; z-index:200; }
+    .toast{ background: rgba(17,24,39,.9); border:1px solid rgba(255,255,255,.14); padding:10px 12px; border-radius:14px; box-shadow: var(--shadow); display:flex; align-items:center; gap:10px; animation: slideIn .25s ease both; }
+    @keyframes slideIn{ from{ transform: translateX(60px); opacity:0; } to{ transform: translateX(0); opacity:1; } }
+    .toast.success{ border-color: rgba(34,197,94,.5); }
+    .toast.error{ border-color: rgba(239,68,68,.6); }
+
+    /* ---- Fun Effects ---- */
+    .ring{ box-shadow: 0 0 0 3px var(--ring); }
+    .shake{ animation: shake .4s linear; }
+    @keyframes shake{ 10%{ transform: translateX(-3px);} 20%{ transform: translateX(3px);} 30%{ transform: translateX(-3px);} 40%{ transform: translateX(3px);} 50%{ transform: translateX(-3px);} 60%{ transform: translateX(3px);} 70%{ transform: translateX(-2px);} 80%{ transform: translateX(2px);} 90%{ transform: translateX(-1px);} 100%{ transform: translateX(0);} }
+
+    canvas#confetti{ position:fixed; inset:0; pointer-events:none; z-index:150; display:none; }
+
+    /* ---- Footer ---- */
+    footer{ padding:8px 16px; text-align:center; font-size:12px; opacity:.7; border-top:1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.03); }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar{ height:12px; width:12px; }
+    ::-webkit-scrollbar-thumb{ background: rgba(255,255,255,.15); border-radius:999px; border:3px solid transparent; background-clip: padding-box; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="logo">
+        <div class="sparkle"></div>
+        <div>Deals CRM • Kanban</div>
+      </div>
+      <div class="controls">
+        <button id="addDealBtn" class="btn primary">＋ New Deal</button>
+        <button id="clearAllBtn" class="btn danger" title="Clear all data (localStorage)">Reset</button>
+      </div>
+    </header>
+
+    <main class="board" id="board"></main>
+    <canvas id="confetti"></canvas>
+
+    <div class="toasts" id="toasts"></div>
+
+    <footer>
+      Local, single-file demo • Drag cards between stages • Data is saved in your browser's localStorage
+    </footer>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal-backdrop" id="modalBackdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true">
+      <h3 id="modalTitle">Add Deal</h3>
+      <form id="dealForm" class="form">
+        <input type="hidden" id="dealId" />
+        <div class="full">
+          <label for="title">Title</label>
+          <input id="title" placeholder="e.g. ACME – Yearly subscription" />
+        </div>
+        <div>
+          <label for="value">Value (USD)</label>
+          <input id="value" type="number" min="0" step="100" placeholder="5000" />
+        </div>
+        <div>
+          <label for="contact">Contact</label>
+          <input id="contact" placeholder="Jane Doe, VP Procurement" />
+        </div>
+        <div>
+          <label for="stage">Stage</label>
+          <select id="stage"></select>
+        </div>
+        <div class="full">
+          <label for="notes">Notes</label>
+          <textarea id="notes" placeholder="Add context, next steps, deadlines…"></textarea>
+        </div>
+        <div class="modal-actions full">
+          <button type="button" class="btn" id="cancelBtn">Cancel</button>
+          <button type="submit" class="btn primary" id="saveBtn">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // -----------------------
+    // Data & Persistence
+    // -----------------------
+    const STAGES = [
+      { id: 'prospect', name: 'Prospect', color: '#bae6fd' },
+      { id: 'qualified', name: 'Qualified', color: '#c4b5fd' },
+      { id: 'proposal', name: 'Proposal', color: '#fde68a' },
+      { id: 'negotiation', name: 'Negotiation', color: '#fda4af' },
+      { id: 'won', name: 'Won', color: '#86efac' },
+      { id: 'lost', name: 'Lost', color: '#fecaca' }
+    ];
+
+    const STORAGE_KEY = 'dealsCRM_v1';
+
+    const state = {
+      deals: [], // {id, title, value, contact, stage, notes, createdAt, updatedAt}
+      order: { prospect: [], qualified: [], proposal: [], negotiation: [], won: [], lost: [] }
+    };
+
+    function load(){
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(raw){
+        try{
+          const parsed = JSON.parse(raw);
+          Object.assign(state, parsed);
+        }catch(e){ console.warn('Failed to parse storage', e); }
+      } else {
+        // seed example data for first time
+        const now = Date.now();
+        const samples = [
+          {title:'ACME – Annual', value:12000, contact:'Jane Cooper', stage:'prospect', notes:'Intro call booked.', createdAt:now-86400000},
+          {title:'Globex – Pilot', value:4500, contact:'Hank Scorpio', stage:'qualified', notes:'Needs SOC2 docs.', createdAt:now-2*86400000},
+          {title:'Initech – Upgrade', value:9800, contact:'Peter Gibbons', stage:'proposal', notes:'Sent proposal 2.0', createdAt:now-3*86400000},
+        ];
+        samples.forEach(addDealInternal);
+        save();
+      }
+    }
+    function save(){
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      render();
+    }
+
+    // -----------------------
+    // Utilities
+    // -----------------------
+    function uid(){ return Math.random().toString(36).slice(2, 9); }
+    function currency(n){
+      return new Intl.NumberFormat(undefined,{style:'currency', currency:'USD', maximumFractionDigits:0}).format(Number(n||0));
+    }
+
+    function showToast(msg, type='success'){
+      const box = document.getElementById('toasts');
+      const t = document.createElement('div');
+      t.className = `toast ${type}`;
+      t.innerHTML = `<span>${msg}</span>`;
+      box.appendChild(t);
+      type==='success'? SFX.chime() : SFX.buzz();
+      setTimeout(()=>{ t.remove(); }, 2600);
+    }
+
+    function openModal(mode='add', deal=null){
+      const bd = document.getElementById('modalBackdrop');
+      document.getElementById('modalTitle').textContent = mode==='add'? 'Add Deal' : 'Edit Deal';
+      document.getElementById('dealId').value = deal?.id || '';
+      document.getElementById('title').value = deal?.title || '';
+      document.getElementById('value').value = deal?.value ?? '';
+      document.getElementById('contact').value = deal?.contact || '';
+      document.getElementById('stage').value = deal?.stage || STAGES[0].id;
+      document.getElementById('notes').value = deal?.notes || '';
+      bd.style.display = 'flex';
+      setTimeout(()=> bd.classList.add('ring'), 0);
+    }
+    function closeModal(){
+      const bd = document.getElementById('modalBackdrop');
+      bd.classList.remove('ring');
+      bd.style.display = 'none';
+    }
+
+    // -----------------------
+    // CRUD
+    // -----------------------
+    function addDealInternal(input){
+      const deal = {
+        id: uid(),
+        title: input.title?.trim() || 'Untitled Deal',
+        value: Number(input.value)||0,
+        contact: input.contact?.trim()||'',
+        stage: input.stage||STAGES[0].id,
+        notes: input.notes?.trim()||'',
+        createdAt: input.createdAt || Date.now(),
+        updatedAt: Date.now()
+      };
+      state.deals.push(deal);
+      state.order[deal.stage].push(deal.id);
+      return deal;
+    }
+
+    function addDeal(formData){
+      const title = formData.title?.trim();
+      if(!title){
+        showToast('Title is required', 'error');
+        document.getElementById('title').classList.add('shake');
+        setTimeout(()=>document.getElementById('title').classList.remove('shake'), 450);
+        return false;
+      }
+      const d = addDealInternal(formData);
+      save();
+      showToast('Deal added');
+      confettiBurst();
+      return true;
+    }
+
+    function updateDeal(id, updates){
+      const idx = state.deals.findIndex(d=>d.id===id);
+      if(idx===-1){ showToast('Deal not found', 'error'); return; }
+      const before = state.deals[idx];
+      state.deals[idx] = { ...before, ...updates, updatedAt: Date.now() };
+      // handle stage change order lists
+      if(updates.stage && updates.stage !== before.stage){
+        state.order[before.stage] = state.order[before.stage].filter(x=>x!==id);
+        state.order[updates.stage].push(id);
+      }
+      save();
+      showToast('Deal updated');
+    }
+
+    function deleteDeal(id){
+      const d = state.deals.find(x=>x.id===id);
+      if(!d) return;
+      if(!confirm('Delete this deal?')){ SFX.click(); return; }
+      state.deals = state.deals.filter(x=>x.id!==id);
+      Object.keys(state.order).forEach(k=>{
+        state.order[k] = state.order[k].filter(x=>x!==id);
+      });
+      save();
+      showToast('Deal deleted');
+    }
+
+    // -----------------------
+    // Render
+    // -----------------------
+    function render(){
+      const board = document.getElementById('board');
+      board.innerHTML = '';
+      STAGES.forEach(stage=>{
+        const col = document.createElement('section');
+        col.className = 'col';
+        col.dataset.stage = stage.id;
+        col.innerHTML = `
+          <div class="col-header">
+            <div class="col-title"><span class="pill" style="background:${stage.color}"></span> ${stage.name}</div>
+            <div class="count" id="count-${stage.id}"></div>
+          </div>
+          <div class="dropzone" data-stage="${stage.id}"></div>
+        `;
+        board.appendChild(col);
+      });
+
+      // Fill deals
+      const map = Object.fromEntries(state.deals.map(d=>[d.id, d]));
+      STAGES.forEach(stage=>{
+        const zone = document.querySelector(`.dropzone[data-stage="${stage.id}"]`);
+        (state.order[stage.id]||[]).forEach(id=>{
+          const deal = map[id];
+          if(!deal) return;
+          const card = renderCard(deal);
+          zone.appendChild(card);
+        });
+        // Count
+        document.getElementById(`count-${stage.id}`).textContent = `${(state.order[stage.id]||[]).length}`;
+      });
+
+      attachDnD();
+    }
+
+    function renderCard(deal){
+      const el = document.createElement('article');
+      el.className = 'card';
+      el.draggable = true;
+      el.dataset.id = deal.id;
+      el.innerHTML = `
+        <div class="shine"></div>
+        <div class="card-title">
+          <span>${deal.title}</span>
+          <span class="tag">${deal.stage.toUpperCase()}</span>
+        </div>
+        <div class="money">${currency(deal.value)}</div>
+        <div class="meta">
+          <span>👤 ${deal.contact || '—'}</span>
+          <span>🕒 ${new Date(deal.updatedAt).toLocaleString()}</span>
+        </div>
+        <div class="actions">
+          <button class="icon-btn" data-action="edit" title="Edit">✏️</button>
+          <button class="icon-btn" data-action="delete" title="Delete">🗑️</button>
+        </div>
+      `;
+
+      el.querySelector('[data-action="edit"]').addEventListener('click', ()=>{
+        const d = state.deals.find(x=>x.id===deal.id);
+        openModal('edit', d);
+      });
+      el.querySelector('[data-action="delete"]').addEventListener('click', ()=> deleteDeal(deal.id));
+      el.addEventListener('dblclick', ()=>{
+        // quick move to next stage
+        const idx = STAGES.findIndex(s=>s.id===deal.stage);
+        const next = STAGES[Math.min(idx+1, STAGES.length-1)].id;
+        if(next!==deal.stage){
+          moveDeal(deal.id, next);
+        }
+      });
+      return el;
+    }
+
+    // -----------------------
+    // Drag & Drop
+    // -----------------------
+    function attachDnD(){
+      let dragId = null, dragEl = null;
+      document.querySelectorAll('.card').forEach(card=>{
+        card.addEventListener('dragstart', e=>{
+          dragId = card.dataset.id; dragEl = card; card.classList.add('ghost');
+          e.dataTransfer.setData('text/plain', dragId);
+        });
+        card.addEventListener('dragend', ()=>{ card.classList.remove('ghost'); dragId=null; dragEl=null; });
+      });
+
+      document.querySelectorAll('.dropzone').forEach(zone=>{
+        zone.addEventListener('dragover', e=>{ e.preventDefault(); zone.classList.add('ring'); });
+        zone.addEventListener('dragleave', ()=> zone.classList.remove('ring'));
+        zone.addEventListener('drop', e=>{
+          e.preventDefault(); zone.classList.remove('ring');
+          const id = dragId || e.dataTransfer.getData('text/plain');
+          if(!id) return;
+          if(!zone.contains(dragEl)) zone.appendChild(dragEl);
+          // update order lists
+          const stage = zone.dataset.stage;
+          const fromStage = state.deals.find(d=>d.id===id)?.stage;
+          Object.keys(state.order).forEach(k=>{
+            state.order[k] = state.order[k].filter(x=>x!==id);
+          });
+          state.order[stage].splice([...zone.children].indexOf(dragEl), 0, id);
+          if(fromStage !== stage) {
+            updateDeal(id, { stage });
+            stageSound(stage);
+            if(stage==='won') confettiBurst();
+            if(stage==='lost') flashRed(dragEl);
+          } else {
+            save();
+          }
+        });
+      });
+    }
+
+    function moveDeal(id, toStage){
+      const el = document.querySelector(`.card[data-id="${id}"]`);
+      const zone = document.querySelector(`.dropzone[data-stage="${toStage}"]`);
+      if(!el || !zone) return;
+      zone.appendChild(el);
+      Object.keys(state.order).forEach(k=>{ state.order[k] = state.order[k].filter(x=>x!==id); });
+      state.order[toStage].push(id);
+      updateDeal(id, { stage: toStage });
+      stageSound(toStage);
+      if(toStage==='won') confettiBurst();
+      if(toStage==='lost') flashRed(el);
+    }
+
+    function flashRed(el){
+      el.style.outline = `3px solid ${getComputedStyle(document.documentElement).getPropertyValue('--danger')}`;
+      el.classList.add('shake'); SFX.buzz();
+      setTimeout(()=>{ el.style.outline='none'; el.classList.remove('shake'); }, 600);
+    }
+
+    // -----------------------
+    // Modal wiring
+    // -----------------------
+    function populateStageOptions(){
+      const sel = document.getElementById('stage');
+      sel.innerHTML = STAGES.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+    }
+
+    function handleForm(){
+      const form = document.getElementById('dealForm');
+      form.addEventListener('submit', e=>{
+        e.preventDefault();
+        const payload = {
+          id: document.getElementById('dealId').value,
+          title: document.getElementById('title').value,
+          value: document.getElementById('value').value,
+          contact: document.getElementById('contact').value,
+          stage: document.getElementById('stage').value,
+          notes: document.getElementById('notes').value,
+        };
+        if(payload.id){
+          if(!payload.title.trim()){
+            showToast('Title is required', 'error');
+            document.getElementById('title').classList.add('shake');
+            setTimeout(()=>document.getElementById('title').classList.remove('shake'), 450);
+            return;
+          }
+          updateDeal(payload.id, payload);
+          closeModal();
+        } else {
+          const ok = addDeal(payload);
+          if(ok) closeModal();
+        }
+      });
+      document.getElementById('cancelBtn').addEventListener('click', closeModal);
+      document.getElementById('modalBackdrop').addEventListener('click', (e)=>{
+        if(e.target.id==='modalBackdrop') closeModal();
+      });
+    }
+
+    // -----------------------
+    // Confetti (success content)
+    // -----------------------
+    function confettiBurst(){
+      const cvs = document.getElementById('confetti');
+      const ctx = cvs.getContext('2d');
+      const w = cvs.width = window.innerWidth; const h = cvs.height = window.innerHeight;
+      cvs.style.display = 'block';
+      const pieces = Array.from({length: 150}, ()=>({
+        x: Math.random()*w,
+        y: -20-Math.random()*h*0.5,
+        r: 4+Math.random()*6,
+        s: 2+Math.random()*4,
+        a: Math.random()*Math.PI,
+        v: 2+Math.random()*3
+      }));
+      let t = 0; const maxT = 90;
+      function step(){
+        ctx.clearRect(0,0,w,h);
+        pieces.forEach(p=>{
+          p.y += p.v; p.x += Math.sin((t+p.a))*1.5; p.a += .05;
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.a);
+          ctx.fillStyle = `hsl(${(p.x/w)*360}, 100%, 65%)`;
+          ctx.fillRect(-p.r/2, -p.r/2, p.r, p.r*1.6);
+          ctx.restore();
+        });
+        t++;
+        if(t<maxT) requestAnimationFrame(step); else { cvs.style.display='none'; }
+      }
+      step();
+      SFX.win();
+    }
+
+    // -----------------------
+    // Sounds (bells, rings, buzzers)
+    // -----------------------
+    const SFX = (()=>{
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const vol = ctx.createGain(); vol.gain.value = 0.06; vol.connect(ctx.destination);
+      function tone(freq, t=0.12, type='sine', detune=0){
+        const o = ctx.createOscillator(); const g = ctx.createGain();
+        o.type = type; o.frequency.value = freq; o.detune.value = detune;
+        o.connect(g); g.connect(vol);
+        g.gain.setValueAtTime(.0001, ctx.currentTime);
+        g.gain.linearRampToValueAtTime(1, ctx.currentTime+0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime+t);
+        o.start(); o.stop(ctx.currentTime+t);
+      }
+      function chime(){ tone(880, .12); tone(1318.5, .18); }
+      function click(){ tone(660, .05, 'triangle'); }
+      function buzz(){ tone(110, .25, 'square'); }
+      function win(){ setTimeout(()=>{ chime(); tone(1760,.12); }, 40); }
+      function bell(){ tone(987.8,.18,'sine', 9); }
+      return { chime, click, buzz, win, bell };
+    })();
+
+    function stageSound(stage){
+      if(stage==='won') SFX.win();
+      else if(stage==='lost') SFX.buzz();
+      else SFX.bell();
+    }
+
+    // -----------------------
+    // Init
+    // -----------------------
+    function bindHeader(){
+      document.getElementById('addDealBtn').addEventListener('click', ()=> openModal('add'));
+      document.getElementById('clearAllBtn').addEventListener('click', ()=>{
+        if(confirm('Reset all local data?')){ localStorage.removeItem(STORAGE_KEY); location.reload(); }
+      });
+    }
+
+    function main(){
+      populateStageOptions();
+      bindHeader();
+      handleForm();
+      load();
+    }
+    main();
+
+    // Accessibility: handle ESC to close modal
+    window.addEventListener('keydown', (e)=>{
+      if(e.key==='Escape') closeModal();
+    });
+  </script>
+</body>
+</html>
